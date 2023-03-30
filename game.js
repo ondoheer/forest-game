@@ -80,11 +80,13 @@ class Forest {
       ];
     
       const trees = [];
-      const spacingFactor = 1.5; // Adjust this value to change the density of the forest
+      const spacingFactor = 1.9; // Adjust this value to change the density of the forest
     
-      for (let x = -this.mapSize / 2; x < this.mapSize / 2; x += this.treeSpacing * spacingFactor) {
-        for (let y = -this.mapSize / 2; y < this.mapSize / 2; y += this.treeSpacing * spacingFactor) {
-          const size = Math.floor(Math.random() * (this.maxTreeSize - this.minTreeSize + 1)) + this.minTreeSize;
+      for (let i = 0; i < this.mapSize / this.treeSpacing; i++) {
+        for (let j = 0; j < this.mapSize / this.treeSpacing; j++) {
+            const x = -this.mapSize / 2 + i * this.treeSpacing * spacingFactor;
+            const y = -this.mapSize / 2 + j * this.treeSpacing * spacingFactor;
+            const size = Math.floor(Math.random() * (this.maxTreeSize - this.minTreeSize + 1)) + this.minTreeSize;
           const color = treeShades[Math.floor(Math.random() * treeShades.length)];
     
           // Check if the position is close to the player's starting position and current position
@@ -119,27 +121,32 @@ class Forest {
     }
     
      
-      
+    drawBackground(playerX, playerY) {
+      ctx.fillStyle = "#FFFFE0"; // Light yellow color
+      ctx.fillRect(-playerX + canvas.width / 2, -playerY + canvas.height / 2, this.mapSize, this.mapSize);
+  }
 
 
-    draw(playerX, playerY) {
-        this.trees.forEach(tree => {
+  draw(playerX, playerY) {
+    this.drawBackground(playerX, playerY); // Add this line to draw the background
+    this.trees.forEach(tree => {
         ctx.fillStyle = tree.color;
         ctx.fillRect(tree.x - playerX + canvas.width / 2, tree.y - playerY + canvas.height / 2, tree.size, tree.size);
-        });
-      // Draw the fence within the same translation context
-      this.drawFence(playerX, playerY);
-    }
+    });
+    // Draw the fence within the same translation context
+    this.drawFence(playerX, playerY);
+}
   
 
     drawFence(playerX, playerY) {
       const fenceWidth = 10;
       ctx.fillStyle = "#8B4513";
-      ctx.fillRect(-playerX + canvas.width / 2, -playerY + canvas.height / 2, this.mapSize, fenceWidth); // top
-      ctx.fillRect(-playerX + canvas.width / 2, -playerY + canvas.height / 2, fenceWidth, this.mapSize); // left
-      ctx.fillRect(-playerX + canvas.width / 2, -playerY + canvas.height / 2 + this.mapSize - fenceWidth, this.mapSize, fenceWidth); // bottom
-      ctx.fillRect(-playerX + canvas.width / 2 + this.mapSize - fenceWidth, -playerY + canvas.height / 2, fenceWidth, this.mapSize); // right
+      ctx.fillRect(-playerX - fenceWidth / 2 + canvas.width / 2, -playerY - fenceWidth / 2 + canvas.height / 2, this.mapSize + fenceWidth, fenceWidth); // top
+      ctx.fillRect(-playerX - fenceWidth / 2 + canvas.width / 2, -playerY - fenceWidth / 2 + canvas.height / 2, fenceWidth, this.mapSize + fenceWidth); // left
+      ctx.fillRect(-playerX - fenceWidth / 2 + canvas.width / 2, -playerY + canvas.height / 2 + this.mapSize - fenceWidth / 2, this.mapSize + fenceWidth, fenceWidth); // bottom
+      ctx.fillRect(-playerX + canvas.width / 2 + this.mapSize - fenceWidth / 2, -playerY - fenceWidth / 2 + canvas.height / 2, fenceWidth, this.mapSize + fenceWidth); // right
     }
+    
     
 }
 
