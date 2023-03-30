@@ -1,6 +1,6 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-
+const mapSize = 2000;
 // Create an object to store the state of each key
 const keys = {
   w: false,
@@ -26,19 +26,22 @@ document.addEventListener("keyup", event => {
 
 // Update the player's position based on the pressed keys
 function handlePlayerMovement(player, speed) {
-  if (keys.w) {
+  const fenceOffset = 4;
+
+  if (keys.w && player.y - speed > fenceOffset) {
     player.y -= speed;
   }
-  if (keys.a) {
+  if (keys.a && player.x - speed > fenceOffset) {
     player.x -= speed;
   }
-  if (keys.s) {
+  if (keys.s && player.y + speed < mapSize - player.size - fenceOffset) {
     player.y += speed;
   }
-  if (keys.d) {
+  if (keys.d && player.x + speed < mapSize - player.size - fenceOffset) {
     player.x += speed;
   }
 }
+
 
 
 class Forest {
@@ -64,18 +67,19 @@ class Forest {
         ];
       
         const trees = [];
-        for (let x = 0; x < this.mapSize; x += this.treeSpacing) {
-          for (let y = 0; y < this.mapSize; y += this.treeSpacing) {
+        const spacingFactor = 1.5;
+      
+        for (let x = 0; x < this.mapSize; x += this.treeSpacing * spacingFactor) {
+          for (let y = 0; y < this.mapSize; y += this.treeSpacing * spacingFactor) {
             const size = Math.floor(Math.random() * (this.maxTreeSize - this.minTreeSize + 1)) + this.minTreeSize;
             const color = treeShades[Math.floor(Math.random() * treeShades.length)];
       
-            /// Check if the position is close to the player's starting position and current position
-const distanceToStart = this.distanceToPoint(x, y, this.playerStart.x, this.playerStart.y);
-const distanceToCurrent = this.distanceToPoint(x, y, this.playerX, this.playerY);
-
+            // Check if the position is close to the player's starting position and current position
+            const distanceToStart = this.distanceToPoint(x, y, this.playerStart.x, this.playerStart.y);
+            const distanceToCurrent = this.distanceToPoint(x, y, this.playerX, this.playerY);
       
             // Randomly decide if a tree will be placed at this position and not too close to the player's starting position
-            const safeDistance = 100
+            const safeDistance = 100;
             if (Math.random() < 0.5 && distanceToStart > safeDistance && distanceToCurrent > safeDistance) {
               trees.push({ x, y, size, color, collided: false });
             }
@@ -83,6 +87,7 @@ const distanceToCurrent = this.distanceToPoint(x, y, this.playerX, this.playerY)
         }
         return trees;
       }
+      
       
 
 
@@ -200,7 +205,7 @@ function showOverlay() {
 const playerStart = { x: canvas.width / 2, y: canvas.height / 2 };
 
 const player = new Player(playerStart.x, playerStart.y, 30);
-const forest = new Forest(1000, 30, 60, 40, playerStart, playerStart.x, playerStart.y);
+const forest = new Forest(mapSize, 30, 60, 40, playerStart, playerStart.x, playerStart.y);
 
 let mouseX = 0;
 let mouseY = 0;
