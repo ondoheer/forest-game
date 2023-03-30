@@ -1,0 +1,16 @@
+0. We wont use rpites draw everything
+1. Create a 1000px x 1000px map with randomly placed trees
+2. Each tree can vary from 30px x 30px to 60px x 60px that should be of 6 different shades of green
+3. Trees can be orthogonally grouped and partially overlapping in groups of up to 6 trees
+4. Each group of trees must be at least 40px away from another in all directions
+5. There should be trees all around the map
+6. the player will be a pixel art created person, it should "walk" and the animation should show that, create s imple pixel art person seen from the top, just his head, shoulders and feet appear as he walks
+7. the player should have a direction it is facing, there he will be holding a rectangle that will represent a flashlight so it should be perpendicular to the player drawing
+8. the player direction and the flashlight should follow the mouse pointer turning the player around
+9. The forest or map should move, not the player, for moving we will use WASD
+10. The player shoundl't be able to go past the map boundaries
+11. The map bopundaries will be a pixel painted fence in 3 shades of brown
+12. If the player collides with a tree, the whole canvas should blink with a red overlay (with alpha value so we still see the map) 3 times to show the player was hurt
+13., the player will have a health value of 100, each tree will lower it's health for it's size / 10, so if a tree is 60px wide, it will lower the palyers health by 6
+14. There should be a health bar that updates itself based on the players health, a counter should show numerical health next to it
+15. if the player looses all of it's health, show a GAME OVER text on top
