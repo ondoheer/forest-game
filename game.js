@@ -1,6 +1,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const mapSize = 2000;
+const playerSpeed = 2;
 // Create an object to store the state of each key
 const keys = {
   w: false,
@@ -67,10 +68,10 @@ class Forest {
         ];
       
         const trees = [];
-        const spacingFactor = 1.5;
+        const spacingFactor = 1.5; // Adjust this value to change the density of the forest
       
-        for (let x = 0; x < this.mapSize; x += this.treeSpacing * spacingFactor) {
-          for (let y = 0; y < this.mapSize; y += this.treeSpacing * spacingFactor) {
+        for (let x = -this.mapSize / 2; x < this.mapSize / 2; x += this.treeSpacing * spacingFactor) {
+          for (let y = -this.mapSize / 2; y < this.mapSize / 2; y += this.treeSpacing * spacingFactor) {
             const size = Math.floor(Math.random() * (this.maxTreeSize - this.minTreeSize + 1)) + this.minTreeSize;
             const color = treeShades[Math.floor(Math.random() * treeShades.length)];
       
@@ -87,6 +88,7 @@ class Forest {
         }
         return trees;
       }
+      
       
       
 
@@ -224,15 +226,18 @@ document.addEventListener("keydown", event => {
 function gameLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  handlePlayerMovement(player, 2); // Adjust '2' to change the movement speed
+  handlePlayerMovement(player, playerSpeed); 
   ctx.save();
   ctx.translate(canvas.width / 2 - player.x, canvas.height / 2 - player.y);
 
   forest.draw(player.x, player.y);
-  forest.drawFence();
+  
   player.draw();
 
   ctx.restore();
+
+  // Draw the fence without applying the translation
+  forest.drawFence();
 
   player.rotate(mouseX, mouseY);
   if (overlayOpacity > 0) {
