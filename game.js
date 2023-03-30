@@ -26,22 +26,34 @@ document.addEventListener("keyup", event => {
 });
 
 // Update the player's position based on the pressed keys
-function handlePlayerMovement(player, speed) {
-  const fenceOffset = 4;
+function handlePlayerMovement(player, speed, forest) {
+  const prevX = player.x;
+  const prevY = player.y;
 
-  if (keys.w && player.y - speed > fenceOffset) {
+  if (keys.w) {
     player.y -= speed;
   }
-  if (keys.a && player.x - speed > fenceOffset) {
+  if (keys.a) {
     player.x -= speed;
   }
-  if (keys.s && player.y + speed < mapSize - player.size - fenceOffset) {
+  if (keys.s) {
     player.y += speed;
   }
-  if (keys.d && player.x + speed < mapSize - player.size - fenceOffset) {
+  if (keys.d) {
     player.x += speed;
   }
+
+  // Check for collisions with the fence
+  const fenceCollision = forest.checkFenceCollision(player.x, player.y, player.size);
+
+  if (fenceCollision) {
+    player.x = prevX;
+    player.y = prevY;
+  }
 }
+
+
+
 
 
 
@@ -62,34 +74,51 @@ class Forest {
         const dy = y1 - y2;
         return Math.sqrt(dx * dx + dy * dy);
       }
-      generateTrees() {
-        const treeShades = [
-          "#228B22", "#008000", "#006400", "#32CD32", "#3CB371", "#2E8B57"
-        ];
-      
-        const trees = [];
-        const spacingFactor = 1.5; // Adjust this value to change the density of the forest
-      
-        for (let x = -this.mapSize / 2; x < this.mapSize / 2; x += this.treeSpacing * spacingFactor) {
-          for (let y = -this.mapSize / 2; y < this.mapSize / 2; y += this.treeSpacing * spacingFactor) {
-            const size = Math.floor(Math.random() * (this.maxTreeSize - this.minTreeSize + 1)) + this.minTreeSize;
-            const color = treeShades[Math.floor(Math.random() * treeShades.length)];
-      
-            // Check if the position is close to the player's starting position and current position
-            const distanceToStart = this.distanceToPoint(x, y, this.playerStart.x, this.playerStart.y);
-            const distanceToCurrent = this.distanceToPoint(x, y, this.playerX, this.playerY);
-      
-            // Randomly decide if a tree will be placed at this position and not too close to the player's starting position
-            const safeDistance = 100;
-            if (Math.random() < 0.5 && distanceToStart > safeDistance && distanceToCurrent > safeDistance) {
-              trees.push({ x, y, size, color, collided: false });
-            }
+    generateTrees() {
+      const treeShades = [
+        "#228B22", "#008000", "#006400", "#32CD32", "#3CB371", "#2E8B57"
+      ];
+    
+      const trees = [];
+      const spacingFactor = 1.5; // Adjust this value to change the density of the forest
+    
+      for (let x = -this.mapSize / 2; x < this.mapSize / 2; x += this.treeSpacing * spacingFactor) {
+        for (let y = -this.mapSize / 2; y < this.mapSize / 2; y += this.treeSpacing * spacingFactor) {
+          const size = Math.floor(Math.random() * (this.maxTreeSize - this.minTreeSize + 1)) + this.minTreeSize;
+          const color = treeShades[Math.floor(Math.random() * treeShades.length)];
+    
+          // Check if the position is close to the player's starting position and current position
+          const distanceToStart = this.distanceToPoint(x, y, this.playerStart.x, this.playerStart.y);
+          const distanceToCurrent = this.distanceToPoint(x, y, this.playerX, this.playerY);
+    
+          // Randomly decide if a tree will be placed at this position and not too close to the player's starting position
+          const safeDistance = 100;
+          if (Math.random() < 0.5 && distanceToStart > safeDistance && distanceToCurrent > safeDistance) {
+            trees.push({ x, y, size, color, collided: false });
           }
         }
-        return trees;
       }
+      return trees;
+    }
       
-      
+    checkFenceCollision(playerX, playerY, playerSize) {
+      const fenceOffset = 4;
+      const fenceWidth = 10;
+      const safeDistance = fenceOffset + fenceWidth + playerSize / 2;
+  
+      // Adjust the player's coordinates in relation to the fence
+      const adjustedPlayerX = playerX + this.mapSize / 2;
+      const adjustedPlayerY = playerY + this.mapSize / 2;
+  
+      const leftCollision = adjustedPlayerX < safeDistance;
+      const rightCollision = adjustedPlayerX > this.mapSize - safeDistance;
+      const topCollision = adjustedPlayerY < safeDistance;
+      const bottomCollision = adjustedPlayerY > this.mapSize - safeDistance;
+  
+      return leftCollision || rightCollision || topCollision || bottomCollision;
+    }
+    
+     
       
 
 
@@ -98,17 +127,20 @@ class Forest {
         ctx.fillStyle = tree.color;
         ctx.fillRect(tree.x - playerX + canvas.width / 2, tree.y - playerY + canvas.height / 2, tree.size, tree.size);
         });
+      // Draw the fence within the same translation context
+      this.drawFence(playerX, playerY);
     }
   
 
-  drawFence() {
-    const fenceWidth = 4;
-    ctx.fillStyle = "#8B4513";
-    ctx.fillRect(0, 0, this.mapSize, fenceWidth); // top
-    ctx.fillRect(0, 0, fenceWidth, this.mapSize); // left
-    ctx.fillRect(0, this.mapSize - fenceWidth, this.mapSize, fenceWidth); // bottom
-    ctx.fillRect(this.mapSize - fenceWidth, 0, fenceWidth, this.mapSize); // right
-  }
+    drawFence(playerX, playerY) {
+      const fenceWidth = 10;
+      ctx.fillStyle = "#8B4513";
+      ctx.fillRect(-playerX + canvas.width / 2, -playerY + canvas.height / 2, this.mapSize, fenceWidth); // top
+      ctx.fillRect(-playerX + canvas.width / 2, -playerY + canvas.height / 2, fenceWidth, this.mapSize); // left
+      ctx.fillRect(-playerX + canvas.width / 2, -playerY + canvas.height / 2 + this.mapSize - fenceWidth, this.mapSize, fenceWidth); // bottom
+      ctx.fillRect(-playerX + canvas.width / 2 + this.mapSize - fenceWidth, -playerY + canvas.height / 2, fenceWidth, this.mapSize); // right
+    }
+    
 }
 
 class Player {
@@ -226,7 +258,7 @@ document.addEventListener("keydown", event => {
 function gameLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  handlePlayerMovement(player, playerSpeed); 
+  handlePlayerMovement(player, playerSpeed, forest); 
   ctx.save();
   ctx.translate(canvas.width / 2 - player.x, canvas.height / 2 - player.y);
 
@@ -236,8 +268,7 @@ function gameLoop() {
 
   ctx.restore();
 
-  // Draw the fence without applying the translation
-  forest.drawFence();
+  
 
   player.rotate(mouseX, mouseY);
   if (overlayOpacity > 0) {
