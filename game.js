@@ -1,307 +1,431 @@
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-const mapSize = 2000;
-const playerSpeed = 2;
-// Create an object to store the state of each key
-const keys = {
-  w: false,
-  a: false,
-  s: false,
-  d: false
-};
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-// Update the 'keys' object when a key is pressed or released
-document.addEventListener("keydown", event => {
-  if (keys.hasOwnProperty(event.key)) {
-    event.preventDefault();
-    keys[event.key] = true;
+const offscreenCanvas = document.createElement('canvas');
+offscreenCanvas.width = canvas.width;
+offscreenCanvas.height = canvas.height;
+const offscreenCtx = offscreenCanvas.getContext('2d');
+
+const input = {};
+
+document.addEventListener('keydown', (event) => {
+  if (event.code === 'Escape') {
+    togglePause();
+  } else {
+    input[event.code] = true;
   }
 });
 
-document.addEventListener("keyup", event => {
-  if (keys.hasOwnProperty(event.key)) {
-    event.preventDefault();
-    keys[event.key] = false;
+document.addEventListener('keyup', (event) => {
+  if (event.code !== 'Escape') {
+    input[event.code] = false;
   }
 });
 
-// Update the player's position based on the pressed keys
-function handlePlayerMovement(player, speed, forest) {
-  const prevX = player.x;
-  const prevY = player.y;
 
-  if (keys.w) {
-    player.y -= speed;
-  }
-  if (keys.a) {
-    player.x -= speed;
-  }
-  if (keys.s) {
-    player.y += speed;
-  }
-  if (keys.d) {
-    player.x += speed;
-  }
+let gamePaused = false;
 
-  // Check for collisions with the fence
-  const fenceCollision = forest.checkFenceCollision(player.x, player.y, player.size);
-
-  if (fenceCollision) {
-    player.x = prevX;
-    player.y = prevY;
+function togglePause() {
+  gamePaused = !gamePaused;
+  if (!gamePaused) {
+    gameLoop();
   }
 }
 
 
 
 
+class Position {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+  }
+}
 
+class Size {
+  constructor(width, height) {
+    this.width = width;
+    this.height = height;
+  }
+}
 
-class Forest {
-    constructor(mapSize, minTreeSize, maxTreeSize, treeSpacing, playerStart, playerX, playerY) {
+class Velocity {
+  constructor(speed) {
+    this.speed = speed;
+  }
+}
+
+class Health {
+  constructor(value) {
+    this.value = value;
+  }
+}
+
+class Inventory {
+  constructor(weapons) {
+    this.weapons = weapons;
+  }
+}
+
+class Color {
+  constructor(value) {
+    this.name = 'Color';
+    this.value = value;
+  }
+}
+
+class Damage {
+  constructor(value) {
+    this.name = 'Damage';
+    this.value = value;
+  }
+}
+
+class Spacing {
+  constructor(value) {
+    this.value = value;
+  }
+}
+
+class Flocking {
+  constructor(separationWeight, alignmentWeight, cohesionWeight, perceptionRadius) {
+    this.separationWeight = separationWeight;
+    this.alignmentWeight = alignmentWeight;
+    this.cohesionWeight = cohesionWeight;
+    this.perceptionRadius = perceptionRadius;
+  }
+}
+
+class Entity {
+  constructor() {
+    this.id = Math.random().toString(36).substr(2, 9);
+    this.components = {};
+  }
+
+  addComponent(component) {
+    this.components[component.constructor.name] = component;
+    return this;
+  }
+
+  removeComponent(componentName) {
+    delete this.components[componentName];
+    return this;
+  }
+
+  getComponent(componentName) {
+    return this.components[componentName];
+  }
+
+  hasComponent(componentName) {
+    return componentName in this.components;
+  }
+}
+
+class EnemyPool {
+  constructor() {
+    this.pool = [];
+  }
+
+  createEnemy(x, y, width, height, speed, color, dmg, spacing) {
+    const existingEnemy = this.pool.find((enemy) => !enemy.active);
   
-      this.mapSize = mapSize;
-      this.minTreeSize = minTreeSize;
-      this.maxTreeSize = maxTreeSize;
-      this.treeSpacing = treeSpacing;
-      this.playerStart = playerStart;
-      this.playerX = playerX;
-        this.playerY = playerY;
-      this.trees = this.generateTrees();
+    if (existingEnemy) {
+      existingEnemy.active = true;
+      const position = existingEnemy.getComponent('Position');
+      position.x = x;
+      position.y = y;
+      return existingEnemy;
+    } else {
+      const newEnemy = new Entity()
+        .addComponent(new Position(x, y))
+        .addComponent(new Size(width, height))
+        .addComponent(new Velocity(speed))
+        .addComponent(new Health(1))
+        .addComponent(new Color(color))
+        .addComponent(new Damage(dmg))
+        .addComponent(new Spacing(spacing))
+        .addComponent(new Flocking(1.5, 1, 1, 50));
+      newEnemy.active = true;
+      this.pool.push(newEnemy);
+      return newEnemy;
     }
-    distanceToPoint(x1, y1, x2, y2) {
-        const dx = x1 - x2;
-        const dy = y1 - y2;
-        return Math.sqrt(dx * dx + dy * dy);
-      }
-    generateTrees() {
-      const treeShades = [
-        "#228B22", "#008000", "#006400", "#32CD32", "#3CB371", "#2E8B57"
-      ];
-    
-      const trees = [];
-      const spacingFactor = 1.9; // Adjust this value to change the density of the forest
-    
-      for (let i = 0; i < this.mapSize / this.treeSpacing; i++) {
-        for (let j = 0; j < this.mapSize / this.treeSpacing; j++) {
-            const x = -this.mapSize / 2 + i * this.treeSpacing * spacingFactor;
-            const y = -this.mapSize / 2 + j * this.treeSpacing * spacingFactor;
-            const size = Math.floor(Math.random() * (this.maxTreeSize - this.minTreeSize + 1)) + this.minTreeSize;
-          const color = treeShades[Math.floor(Math.random() * treeShades.length)];
-    
-          // Check if the position is close to the player's starting position and current position
-          const distanceToStart = this.distanceToPoint(x, y, this.playerStart.x, this.playerStart.y);
-          const distanceToCurrent = this.distanceToPoint(x, y, this.playerX, this.playerY);
-    
-          // Randomly decide if a tree will be placed at this position and not too close to the player's starting position
-          const safeDistance = 100;
-          if (Math.random() < 0.5 && distanceToStart > safeDistance && distanceToCurrent > safeDistance) {
-            trees.push({ x, y, size, color, collided: false });
+  }
+  
+}
+
+const enemyPool = new EnemyPool();
+
+const player = new Entity()
+  .addComponent(new Position(400, 300))
+  .addComponent(new Color('blue'))
+  .addComponent(new Size(30, 30))
+  .addComponent(new Velocity(5))
+  .addComponent(new Health(100))
+  .addComponent(new Inventory([]));
+
+
+
+const entities = [player];
+
+function spawnEnemies() {
+  const groupSize = Math.floor(Math.random() * 11) + 10; // Random group size between 10 and 20
+  const edge = Math.random() < 0.5 ? 0 : canvas.width - 20; // Randomly choose left or right edge
+
+  for (let i = 0; i < groupSize; i++) {
+    let validPosition = false;
+    let x, y;
+
+    while (!validPosition) {
+      x = edge;
+      y = Math.random() * (canvas.height - 20);
+
+      validPosition = true;
+
+      // Check if the new enemy is too close to existing enemies
+      for (const entity of entities) {
+        if (entity.hasComponent('Spacing')) {
+          const position = entity.getComponent('Position');
+          const size = entity.getComponent('Size');
+          const spacing = entity.getComponent('Spacing').value;
+
+          const dx = Math.abs(position.x - x);
+          const dy = Math.abs(position.y - y);
+          const minDistance = size.width / 2 + spacing;
+
+          if (dx < minDistance && dy < minDistance) {
+            validPosition = false;
+            break;
           }
         }
       }
-      return trees;
     }
-      
-    checkFenceCollision(playerX, playerY, playerSize) {
-      const fenceOffset = 4;
-      const fenceWidth = 10;
-      const safeDistance = fenceOffset + fenceWidth + playerSize / 2;
-  
-      // Adjust the player's coordinates in relation to the fence
-      const adjustedPlayerX = playerX + this.mapSize / 2;
-      const adjustedPlayerY = playerY + this.mapSize / 2;
-  
-      const leftCollision = adjustedPlayerX < safeDistance;
-      const rightCollision = adjustedPlayerX > this.mapSize - safeDistance;
-      const topCollision = adjustedPlayerY < safeDistance;
-      const bottomCollision = adjustedPlayerY > this.mapSize - safeDistance;
-  
-      return leftCollision || rightCollision || topCollision || bottomCollision;
-    }
-    
-     
-    drawBackground(playerX, playerY) {
-      ctx.fillStyle = "#FFFFE0"; // Light yellow color
-      ctx.fillRect(-playerX + canvas.width / 2, -playerY + canvas.height / 2, this.mapSize, this.mapSize);
+
+    const enemy = enemyPool.createEnemy(x, y, 20, 20, player.getComponent('Velocity').speed / 2, 'red', 1, 10);
+    entities.push(enemy);
   }
-
-
-  draw(playerX, playerY) {
-    this.drawBackground(playerX, playerY); // Add this line to draw the background
-    this.trees.forEach(tree => {
-        ctx.fillStyle = tree.color;
-        ctx.fillRect(tree.x - playerX + canvas.width / 2, tree.y - playerY + canvas.height / 2, tree.size, tree.size);
-    });
-    // Draw the fence within the same translation context
-    this.drawFence(playerX, playerY);
-}
-  
-
-    drawFence(playerX, playerY) {
-      const fenceWidth = 10;
-      ctx.fillStyle = "#8B4513";
-      ctx.fillRect(-playerX - fenceWidth / 2 + canvas.width / 2, -playerY - fenceWidth / 2 + canvas.height / 2, this.mapSize + fenceWidth, fenceWidth); // top
-      ctx.fillRect(-playerX - fenceWidth / 2 + canvas.width / 2, -playerY - fenceWidth / 2 + canvas.height / 2, fenceWidth, this.mapSize + fenceWidth); // left
-      ctx.fillRect(-playerX - fenceWidth / 2 + canvas.width / 2, -playerY + canvas.height / 2 + this.mapSize - fenceWidth / 2, this.mapSize + fenceWidth, fenceWidth); // bottom
-      ctx.fillRect(-playerX + canvas.width / 2 + this.mapSize - fenceWidth / 2, -playerY - fenceWidth / 2 + canvas.height / 2, fenceWidth, this.mapSize + fenceWidth); // right
-    }
-    
-    
 }
 
-class Player {
-    constructor(x, y, size) {
-      this.x = x;
-      this.y = y;
-      this.size = size;
-      this.health = 100;
-      this.rotation = 0;
-    }
-  
-    rotate(mouseX, mouseY) {
-      const dx = mouseX - canvas.width / 2;
-      const dy = mouseY - canvas.height / 2;
-      this.rotation = Math.atan2(dy, dx);
-    }
-  
-    draw() {
-      ctx.save();
-      ctx.translate(this.x, this.y);
-      ctx.rotate(this.rotation);
-  
-      // Draw head
-      ctx.fillStyle = "#FFA07A";
-      ctx.fillRect(-this.size / 4, -this.size / 4, this.size / 2, this.size / 2);
-  
-      // Draw shoulders
-      ctx.fillStyle = "#808080";
-      ctx.fillRect(-this.size / 2, 0, this.size, this.size / 2);
-  
-      // Draw feet
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(-this.size / 2, this.size / 2, this.size / 2, this.size / 4);
-      ctx.fillRect(0, this.size / 2, this.size / 2, this.size / 4);
-  
-      // Draw flashlight
-      ctx.fillStyle = "#D3D3D3";
-      ctx.fillRect(this.size / 4, -this.size / 8, this.size / 2, this.size / 4);
-  
-      ctx.restore();
-    }
-  
-    checkCollision(tree, playerX, playerY) {
-      const dx = tree.x - playerX + canvas.width / 2 + tree.size / 2 - (this.x);
-      const dy = tree.y - playerY + canvas.height / 2 + tree.size / 2 - (this.y);
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      const minDistance = (tree.size + this.size) / 2;
-    
-      return distance < minDistance;
-    }
-    
-
-    collideWithTree(tree) {
-        if (!tree.collided) {
-            this.health -= tree.size / 10;
-            tree.collided = true;
-        }
-    }
-  }
-  
-  class UI {
-    static drawHealthBar(player) {
-      const x = 20;
-      const y = 20;
-      const width = 200;
-      const height = 20;
-  
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(x, y, width, height);
-  
-      ctx.fillStyle = "#FF0000";
-      ctx.fillRect(x, y, width * (player.health / 100), height);
-  
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = "14px Arial";
-      ctx.fillText(`${player.health}/100`, x + width / 2 - 20, y + 14);
-    }
-  
-    static drawGameOver() {
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = "48px Arial";
-      ctx.fillText("GAME OVER", canvas.width / 2 - 100, canvas.height / 2);
-    }
-  }
-
-// overlay
-let overlayOpacity = 0;
-
-function showOverlay() {
-  overlayOpacity = 0.3;
-  setTimeout(() => {
-    overlayOpacity = 0;
-  }, 500);
+function getRandomGreen() {
+  const greenShades = [
+    '#6dbf67',
+    '#5cac5a',
+    '#4b9950',
+    '#388646',
+    '#26733c',
+  ];
+  return greenShades[Math.floor(Math.random() * greenShades.length)];
 }
 
-const playerStart = { x: canvas.width / 2, y: canvas.height / 2 };
+let spawnInterval;
+let startTime = Date.now();
 
-const player = new Player(playerStart.x, playerStart.y, 30);
-const forest = new Forest(mapSize, 30, 60, 40, playerStart, playerStart.x, playerStart.y);
-
-let mouseX = 0;
-let mouseY = 0;
-
-canvas.addEventListener("mousemove", event => {
-  mouseX = event.clientX - canvas.offsetLeft;
-  mouseY = event.clientY - canvas.offsetTop;
-});
-
-document.addEventListener("keydown", event => {
-  if (event.key === "w" || event.key === "a" || event.key === "s" || event.key === "d") {
-    event.preventDefault();
-  }
-});
-
-function gameLoop() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  handlePlayerMovement(player, playerSpeed, forest); 
-  ctx.save();
-  ctx.translate(canvas.width / 2 - player.x, canvas.height / 2 - player.y);
-
-  forest.draw(player.x, player.y);
-  
-  player.draw();
-
-  ctx.restore();
-
-  
-
-  player.rotate(mouseX, mouseY);
-  if (overlayOpacity > 0) {
-    ctx.fillStyle = `rgba(255, 0, 0, ${overlayOpacity})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
-  
-  // Check tree collisions
-  for (const tree of forest.trees) {
-    if (player.checkCollision(tree, player.x, player.y)) {
-      player.collideWithTree(tree);
-      showOverlay();
+function startSpawning() {
+  spawnInterval = setInterval(() => {
+    if (Date.now() - startTime < 30000) {
+      spawnEnemies();
     } else {
-      tree.collided = false;
+      clearInterval(spawnInterval);
+    }
+  }, 3000);
+}
+
+startSpawning();
+
+
+function update() {
+  const playerPosition = player.getComponent('Position');
+  const playerSize = player.getComponent('Size');
+  const playerHealth = player.getComponent('Health');
+  const playerVelocity = player.getComponent('Velocity');
+
+  entities.forEach((entity) => {
+    // Update the player's position based on input
+    if (entity === player) {
+      let newX = playerPosition.x;
+      let newY = playerPosition.y;
+
+      if (input['KeyW']) newY -= playerVelocity.speed;
+      if (input['KeyA']) newX -= playerVelocity.speed;
+      if (input['KeyS']) newY += playerVelocity.speed;
+      if (input['KeyD']) newX += playerVelocity.speed;
+
+      if (newX >= 0 && newX + playerSize.width <= canvas.width) {
+        playerPosition.x = newX;
+      }
+
+      if (newY >= 0 && newY + playerSize.height <= canvas.height) {
+        playerPosition.y = newY;
+      }
+    } if (entity.hasComponent('Flocking')) {
+      // Flocking behavior
+      const position = entity.getComponent('Position');
+      const velocity = entity.getComponent('Velocity');
+      const flocking = entity.getComponent('Flocking');
+      
+      let separation = { x: 0, y: 0 };
+      let alignment = { x: 0, y: 0 };
+      let cohesion = { x: 0, y: 0 };
+      let neighbors = 0;
+
+      entities.forEach((other) => {
+        if (other !== entity && other.hasComponent('Flocking')) {
+          const otherPosition = other.getComponent('Position');
+          const distance = Math.hypot(position.x - otherPosition.x, position.y - otherPosition.y);
+
+          if (distance < flocking.perceptionRadius) {
+            // Separation
+            separation.x += (position.x - otherPosition.x) / distance;
+            separation.y += (position.y - otherPosition.y) / distance;
+
+            // Alignment
+            const otherVelocity = other.getComponent('Velocity');
+            alignment.x += otherVelocity.speed;
+            alignment.y += otherVelocity.speed;
+
+            // Cohesion
+            cohesion.x += otherPosition.x;
+            cohesion.y += otherPosition.y;
+
+            neighbors++;
+          }
+        }
+      });
+
+      if (neighbors > 0) {
+        // Separation
+        separation.x /= neighbors;
+        separation.y /= neighbors;
+
+        // Alignment
+        alignment.x /= neighbors;
+        alignment.y /= neighbors;
+
+        // Cohesion
+        cohesion.x /= neighbors;
+        cohesion.y /= neighbors;
+        cohesion.x = (cohesion.x - position.x) * flocking.cohesionWeight;
+        cohesion.y = (cohesion.y - position.y) * flocking.cohesionWeight;
+      }
+
+      // Apply flocking forces
+      const dx = playerPosition.x - position.x;
+      const dy = playerPosition.y - position.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const directionX = (dx / distance) * velocity.speed;
+      const directionY = (dy / distance) * velocity.speed;
+
+      position.x += directionX + separation.x * flocking.separationWeight + alignment.x * flocking.alignmentWeight + cohesion.x;
+      position.y += directionY + separation.y * flocking.separationWeight + alignment.y * flocking.alignmentWeight + cohesion.y;
+
+      // Check for collisions with the player
+      if (
+        position.x < playerPosition.x + playerSize.width &&
+        position.x + entity.getComponent('Size').width > playerPosition.x &&
+        position.y < playerPosition.y + playerSize.height &&
+        position.y + entity.getComponent('Size').height > playerPosition.y
+      ) {
+        playerHealth.value -= entity.getComponent('Damage').value;
+      }
+    }
+  });
+}
+
+
+function drawGrassOffscreen() {
+  const grassSize = 10;
+
+  for (let x = 0; x < offscreenCanvas.width; x += grassSize) {
+    for (let y = 0; y < offscreenCanvas.height; y += grassSize) {
+      offscreenCtx.fillStyle = getRandomGreen();
+      offscreenCtx.fillRect(x, y, grassSize, grassSize);
     }
   }
-  
-  
-  
+}
 
-  UI.drawHealthBar(player);
+// call it
+drawGrassOffscreen();
 
-  if (player.health <= 0) {
-    UI.drawGameOver();
-  } else {
+function drawPausedText() {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = 'white';
+  ctx.font = '48px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
+}
+
+function drawHealthBar(entity) {
+  const health = entity.getComponent('Health');
+  const position = entity.getComponent('Position');
+  const size = entity.getComponent('Size');
+
+  const barWidth = 50;
+  const barHeight = 10;
+  const x = position.x + size.width / 2 - barWidth / 2;
+  const y = position.y - 20;
+
+  // Draw the background of the health bar
+  ctx.fillStyle = 'black';
+  ctx.fillRect(x, y, barWidth, barHeight);
+
+  // Calculate the width of the health bar based on the health percentage
+  const healthWidth = (health.value / 100) * barWidth;
+
+  // Draw the health bar
+  ctx.fillStyle = 'red';
+  ctx.fillRect(x, y, healthWidth, barHeight);
+
+  // Draw the health percentage text
+  ctx.fillStyle = 'white';
+  ctx.font = '10px Arial';
+  ctx.fillText(`${health.value}%`, x + barWidth / 2 - 10, y + barHeight - 1);
+}
+
+function draw() {
+  ctx.drawImage(offscreenCanvas, 0, 0);
+
+  entities.forEach((entity) => {
+    const position = entity.getComponent('Position');
+    const size = entity.getComponent('Size');
+    const color = entity.getComponent('Color');
+
+    // Draw the player
+    ctx.fillStyle = color.value;
+    ctx.fillRect(position.x, position.y, size.width, size.height);
+
+    
+    // Draw the health bar only for the player
+    if (entity === player) {
+      drawHealthBar(entity);
+    }
+
+    
+  });
+  if (gamePaused) {
+    drawPausedText();
+    console.log("paused")
+  }
+}
+
+
+
+
+
+
+
+
+// Main game loop
+function gameLoop() {
+  if (!gamePaused) {
+    update();
+    draw();
+
     requestAnimationFrame(gameLoop);
+  } else {
+    // Draw the paused text when the game is paused
+    drawPausedText();
   }
 }
 
